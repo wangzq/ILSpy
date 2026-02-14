@@ -1,0 +1,250 @@
+<UserControl x:Class="StackTraceExplorer.StackTraceExplorerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:StackTraceExplorer"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <local:EqualityConverter x:Key="EqualityConverter"/>
+
+        <Style x:Key="FrameTextStyle" TargetType="TextBlock">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding CanNavigate}" Value="False">
+                    <Setter Property="Foreground" Value="Gray"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FrameType}" Value="{x:Static local:StackFrameType.InnerExceptionBoundary}">
+                    <Setter Property="FontStyle" Value="Italic"/>
+                    <Setter Property="Foreground" Value="DarkGray"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FrameType}" Value="{x:Static local:StackFrameType.NativeTransition}">
+                    <Setter Property="FontStyle" Value="Italic"/>
+                    <Setter Property="Foreground" Value="DarkGray"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FrameType}" Value="{x:Static local:StackFrameType.ManagedTransition}">
+                    <Setter Property="FontStyle" Value="Italic"/>
+                    <Setter Property="Foreground" Value="DarkGray"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FrameType}" Value="{x:Static local:StackFrameType.ExceptionHeader}">
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="Foreground" Value="DarkRed"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FrameType}" Value="{x:Static local:StackFrameType.Unknown}">
+                    <Setter Property="Foreground" Value="Gray"/>
+                    <Setter Property="FontStyle" Value="Italic"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="NavigableItemStyle" TargetType="ListBoxItem">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding CanNavigate}" Value="True">
+                    <Setter Property="Cursor" Value="Hand"/>
+                </DataTrigger>
+                <!-- Also show hand cursor for unresolved method frames (double-click to search) -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsMethodFrame}" Value="True"/>
+                        <Condition Binding="{Binding CanNavigate}" Value="False"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="ToolTip" Value="Double-click to search"/>
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Tab close button style -->
+        <Style x:Key="TabCloseButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="Gray"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="2"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#20000000"/>
+                                <Setter Property="Foreground" Value="Black"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header with Paste/Open buttons and Tab headers on same line -->
+        <DockPanel Grid.Row="0" LastChildFill="True">
+            <Button DockPanel.Dock="Left"
+                    Command="{Binding PasteCommand}"
+                    ToolTip="Paste stack trace from clipboard into new tab"
+                    Padding="3,2"
+                    Margin="2"
+                    MinWidth="24">
+                <TextBlock Text="&#x1F4CB;" FontSize="14"/>
+            </Button>
+            <Button DockPanel.Dock="Left"
+                    Command="{Binding OpenCommand}"
+                    ToolTip="Open stack trace files (multiple selection supported)"
+                    Padding="3,2"
+                    Margin="2"
+                    MinWidth="24">
+                <Image Width="16" Height="16" Source="{x:Static local:PluginImages.Open}"/>
+            </Button>
+
+            <!-- Tab headers (scrollable) -->
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled"
+                          Margin="4,0,0,0">
+                <ItemsControl x:Name="TabHeaders" ItemsSource="{Binding Tabs}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border x:Name="TabBorder"
+                                    BorderBrush="LightGray"
+                                    BorderThickness="1,1,1,0"
+                                    CornerRadius="4,4,0,0"
+                                    Margin="1,2,1,0"
+                                    Padding="6,4"
+                                    Background="White"
+                                    MouseLeftButtonDown="OnTabHeaderClick"
+                                    MouseDown="OnTabHeaderMouseDown"
+                                    Cursor="Hand">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Title}"
+                                               VerticalAlignment="Center"
+                                               MaxWidth="150"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Title}"/>
+                                    <Button Style="{StaticResource TabCloseButtonStyle}"
+                                            Click="OnTabCloseClick"
+                                            ToolTip="Close tab (middle-click)">
+                                        <TextBlock Text="&#x2715;"/>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Value="True">
+                                    <DataTrigger.Binding>
+                                        <MultiBinding Converter="{StaticResource EqualityConverter}">
+                                            <Binding/>
+                                            <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=UserControl}"/>
+                                        </MultiBinding>
+                                    </DataTrigger.Binding>
+                                    <Setter TargetName="TabBorder" Property="Background" Value="#E8F0FE"/>
+                                    <Setter TargetName="TabBorder" Property="BorderBrush" Value="#4A90D9"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
+
+        <!-- Tab content area -->
+        <Border Grid.Row="1" BorderBrush="LightGray" BorderThickness="0,1,0,0">
+            <Grid DataContext="{Binding SelectedTab}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Frame list -->
+                <ListBox Grid.Row="0"
+                         ItemsSource="{Binding Frames}"
+                         SelectedItem="{Binding SelectedFrame}"
+                         ItemContainerStyle="{StaticResource NavigableItemStyle}"
+                         SelectionChanged="OnSelectionChanged"
+                         MouseDoubleClick="OnListDoubleClick"
+                         KeyDown="OnListKeyDown"
+                         HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         VirtualizingPanel.IsVirtualizing="True">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Status indicator -->
+                                <TextBlock Grid.Column="0"
+                                           VerticalAlignment="Center"
+                                           FontFamily="Segoe UI Symbol">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value=""/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CanNavigate}" Value="True">
+                                                    <Setter Property="Text" Value="&#x2713;"/>
+                                                    <Setter Property="Foreground" Value="Green"/>
+                                                </DataTrigger>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsMethodFrame}" Value="True"/>
+                                                        <Condition Binding="{Binding CanNavigate}" Value="False"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Text" Value="?"/>
+                                                    <Setter Property="Foreground" Value="Orange"/>
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <!-- Frame text -->
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding DisplayText}"
+                                           Style="{StaticResource FrameTextStyle}"
+                                           FontFamily="Consolas"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding RawText}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Status bar -->
+                <StatusBar Grid.Row="1">
+                    <StatusBarItem>
+                        <TextBlock Text="{Binding StatusText}"/>
+                    </StatusBarItem>
+                </StatusBar>
+
+                <!-- Placeholder when no tab is selected -->
+                <TextBlock x:Name="PlaceholderText"
+                           Grid.Row="0" Grid.RowSpan="2"
+                           Text="Click Paste or Open to add a stack trace"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="Gray"
+                           FontStyle="Italic"
+                           Visibility="Collapsed"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
