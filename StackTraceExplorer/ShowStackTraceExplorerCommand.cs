@@ -10,7 +10,7 @@ namespace StackTraceExplorer
 	/// </summary>
 	[ExportMainMenuCommand(
 		ParentMenuID = "_View",
-		Header = "Stack Trace E_xplorer (v1.0.19)",
+		Header = "Stack Trace E_xplorer (v1.0.20)",
 		MenuCategory = "View",
 		MenuOrder = 3000)]
 	[Shared]

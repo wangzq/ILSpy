@@ -17,6 +17,7 @@ namespace StackTraceExplorer.Parsers
 			parsers = new IStackTraceParser[]
 			{
 				new SpecialMarkersParser(),
+				new WatsonCrashParser(),
 				new WinDbgParser(),
 				new StandardNetParser()
 			}.OrderByDescending(p => p.Priority).ToArray();

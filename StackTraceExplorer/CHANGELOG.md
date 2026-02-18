@@ -1,5 +1,13 @@
 # Stack Trace Explorer Plugin - Changelog
 
+## v1.0.20
+- **Watson crash stack trace support**: Added `WatsonCrashParser` for Watson crash dump format
+  - Format: `Module!Namespace.Class.Method+0x0 [source @ line]`
+  - Handles module names with underscores (e.g., `mscorlib_ni`, `Microsoft_Crm_Core`)
+  - Strips `_ni` suffix and converts underscores to dots for assembly name matching
+  - Recognizes native modules (clr, ntdll, kernel32, etc.) as non-navigable frames
+  - Handles generic type notation like `Task`1[[System.__Canon, mscorlib]]`
+
 ## v1.0.18
 - **Clipboard emoji**: Use Unicode clipboard glyph (📋) for Paste button instead of Copy icon
 - **Smaller buttons**: Reduced button padding for more compact toolbar

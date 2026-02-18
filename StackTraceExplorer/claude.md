@@ -32,7 +32,8 @@
 ## Stack Trace Formats Supported
 1. Standard .NET: `at Namespace.Class.Method(Type param)`
 2. WinDbg: `Assembly.dll!Namespace.Class.Method(params) (IL≈0xHEX, Native=...)`
-3. Relaxed parsing for truncated lines (missing closing parens)
+3. Watson Crash: `Module!Namespace.Class.Method+0x0 [source @ line]`
+4. Relaxed parsing for truncated lines (missing closing parens)
 
 ## Key Files
 - `StackTraceExplorerModel.cs` - Main ViewModel with commands and navigation
@@ -40,6 +41,7 @@
 - `ShowStackTraceExplorerCommand.cs` - Menu command with version
 - `Parsers/StandardNetParser.cs` - Relaxed regex parsing
 - `Parsers/WinDbgParser.cs` - WinDbg format parsing
+- `Parsers/WatsonCrashParser.cs` - Watson crash dump format parsing
 - `MethodResolver.cs` - Method resolution with generic arity matching
 
 ## Dependencies
