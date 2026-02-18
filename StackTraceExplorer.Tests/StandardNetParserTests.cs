@@ -94,5 +94,75 @@ namespace StackTraceExplorer.Tests
 			// This test verifies StandardParser doesn't break on this format
 			Assert.That(parser.CanParse(line), Is.True);
 		}
+
+		#region TraceError Format Tests (simple type names without namespace)
+
+		[Test]
+		public void Parse_TraceError_SimpleTypeName_WithILOffset()
+		{
+			// TraceError format: "at TypeName.Method(params) ilOffset = 0xHEX"
+			// Note: No namespace, just simple type name
+			var line = "   at CrmTrace.Write(TraceRedirection traceRedirection, Guid orgId, TraceCategory traceCategory, TraceLevel traceLevel, Int32 skipFrames, String format, Object[] args)  ilOffset = 0x8E";
+
+			var frame = parser.Parse(line);
+
+			Assert.That(frame, Is.Not.Null, "Frame should be parsed");
+			Assert.That(frame!.FullTypeName, Is.EqualTo("CrmTrace"), "Type name should be just 'CrmTrace' (no namespace)");
+			Assert.That(frame.MethodName, Is.EqualTo("Write"), "Method name should be 'Write'");
+			Assert.That(frame.Parameters, Does.Contain("traceRedirection"), "Parameters should be captured");
+			Assert.That(frame.ILOffset, Is.EqualTo(0x8E), "IL offset should be parsed");
+		}
+
+		[Test]
+		public void Parse_TraceError_SimpleTypeName_LeadingTab()
+		{
+			// TraceError format can have leading tab instead of spaces
+			var line = "	at MessageProcessor.Execute(PipelineExecutionContext context)  ilOffset = 0x61F";
+
+			var frame = parser.Parse(line);
+
+			Assert.That(frame, Is.Not.Null, "Frame should be parsed");
+			Assert.That(frame!.FullTypeName, Is.EqualTo("MessageProcessor"), "Type name should be 'MessageProcessor'");
+			Assert.That(frame.MethodName, Is.EqualTo("Execute"), "Method name should be 'Execute'");
+			Assert.That(frame.ILOffset, Is.EqualTo(0x61F), "IL offset should be parsed");
+		}
+
+		[Test]
+		public void Parse_TraceError_AngleBracketClosure()
+		{
+			// TraceError format with compiler-generated closure type
+			var line = "	at <>c__DisplayClass20_0.<ExecuteRequest>b__0()  ilOffset = 0xA1";
+
+			var frame = parser.Parse(line);
+
+			Assert.That(frame, Is.Not.Null, "Frame should be parsed");
+			Assert.That(frame!.FullTypeName, Is.EqualTo("<>c__DisplayClass20_0"), "Type should be the closure type");
+			Assert.That(frame.MethodName, Is.EqualTo("<ExecuteRequest>b__0"), "Method name should include closure method");
+			Assert.That(frame.FrameType, Is.EqualTo(StackFrameType.Lambda), "Should be detected as lambda");
+		}
+
+		[Test]
+		public void Parse_TraceError_GenericTypeSuffix()
+		{
+			// TraceError format with generic type argument in method
+			var line = "	at ActivityLoggerExtensions.Execute(ILogger logger, EventId eventId, ActivityType activityType, Func`1 func, IEnumerable`1 additionalCustomProperties)  ilOffset = 0x4F";
+
+			var frame = parser.Parse(line);
+
+			Assert.That(frame, Is.Not.Null, "Frame should be parsed");
+			Assert.That(frame!.FullTypeName, Is.EqualTo("ActivityLoggerExtensions"), "Type name should be 'ActivityLoggerExtensions'");
+			Assert.That(frame.MethodName, Is.EqualTo("Execute"), "Method name should be 'Execute'");
+			Assert.That(frame.Parameters, Does.Contain("Func`1"), "Parameters should contain generic type marker");
+		}
+
+		[Test]
+		public void CanParse_TraceError_Format()
+		{
+			var line = "	at CrmTrace.TraceError(Exception ex, Guid orgId, TraceCategory traceCategory, Int32 skipFrames, String format, Object[] args)  ilOffset = 0x4F";
+
+			Assert.That(parser.CanParse(line), Is.True, "Should be able to parse TraceError format");
+		}
+
+		#endregion
 	}
 }

@@ -1,5 +1,11 @@
 # Stack Trace Explorer Plugin - Changelog
 
+## v1.0.23
+- **Simple type name resolution**: Support stack traces with only class names (no namespace)
+  - TraceError format: `at CrmTrace.Write(...)  ilOffset = 0x8E`
+  - Searches loaded assemblies by simple type name when full namespace is not available
+  - Uses best-effort matching - returns first type found with matching name
+
 ## v1.0.22
 - **Property/Event accessor resolution**: Now resolves `get_X`, `set_X`, `add_X`, `remove_X` to property getters/setters and event handlers
 - **Static constructor resolution**: Now resolves `.cctor()` to static constructors

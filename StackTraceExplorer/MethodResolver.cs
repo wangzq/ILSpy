@@ -172,6 +172,13 @@ namespace StackTraceExplorer
 			// Use balanced bracket matching to handle nested generics properly
 			fullTypeName = StripGenericTypeArgs(fullTypeName);
 
+			// If no dots in the name, this is a simple type name - search by name only
+			// This handles stack traces like "at CrmTrace.Write(...)" where only the class name is present
+			if (!fullTypeName.Contains('.') && !fullTypeName.Contains('+'))
+			{
+				return FindTypeBySimpleName(typeSystem, fullTypeName);
+			}
+
 			// Handle nested types (indicated by +)
 			var parts = fullTypeName.Replace('+', '.').Split('.');
 			if (parts.Length == 0)
@@ -586,6 +593,66 @@ namespace StackTraceExplorer
 				return true;
 
 			return false;
+		}
+
+		/// <summary>
+		/// Searches for a type by its simple name only (no namespace).
+		/// This handles stack traces where only the class name is available.
+		/// </summary>
+		private ITypeDefinition? FindTypeBySimpleName(ICompilation typeSystem, string simpleName)
+		{
+			// Strip generic arity from simple name (e.g., List`1 -> List with arity 1)
+			var genericMatch = GenericArityPattern.Match(simpleName);
+			int expectedArity = 0;
+			if (genericMatch.Success)
+			{
+				expectedArity = int.Parse(genericMatch.Groups[1].Value);
+				simpleName = simpleName.Substring(0, genericMatch.Index);
+			}
+
+			// Only search the main module (the assembly we're currently checking)
+			// This is much faster than searching all referenced modules
+			var mainModule = typeSystem.MainModule;
+			if (mainModule == null)
+				return null;
+
+			// TopLevelTypeDefinitions includes types from all namespaces in this module
+			foreach (var type in mainModule.TopLevelTypeDefinitions)
+			{
+				// Compare just the simple type name (type.Name), not the full name
+				if (type.Name.Equals(simpleName, StringComparison.Ordinal) &&
+					type.TypeParameterCount == expectedArity)
+				{
+					return type;
+				}
+
+				// Also check nested types (for cases like Outer.Inner where we only have "Inner")
+				var nestedMatch = FindNestedTypeByName(type, simpleName, expectedArity);
+				if (nestedMatch != null)
+					return nestedMatch;
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Recursively searches nested types for a type with the given simple name.
+		/// </summary>
+		private ITypeDefinition? FindNestedTypeByName(ITypeDefinition parent, string name, int arity)
+		{
+			foreach (var nested in parent.NestedTypes)
+			{
+				if (nested.Name.Equals(name, StringComparison.Ordinal) &&
+					nested.TypeParameterCount == arity)
+				{
+					return nested;
+				}
+
+				var deeperMatch = FindNestedTypeByName(nested, name, arity);
+				if (deeperMatch != null)
+					return deeperMatch;
+			}
+			return null;
 		}
 	}
 }
