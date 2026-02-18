@@ -19,8 +19,10 @@ namespace StackTraceExplorer.Parsers
 			@"^\s*---\s*End of inner exception stack trace\s*---",
 			RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+		// Matches WinDbg runtime frames: [GCFrame], [HelperMethodFrame], [PrestubMethodFrame], etc.
+		// Also matches frames with addresses like [GCFrame: 0x00000027a658da48]
 		private static readonly Regex GCFramePattern = new Regex(
-			@"^\s*\[(GCFrame|HelperMethodFrame).*\]",
+			@"^\s*(?:[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+)?\[(GCFrame|HelperMethodFrame|PrestubMethodFrame|DebuggerU2MCatchHandlerFrame).*\]",
 			RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
 		private static readonly Regex ExceptionHeaderPattern = new Regex(
@@ -36,9 +38,16 @@ namespace StackTraceExplorer.Parsers
 		public bool CanParse(string line)
 		{
 			var trimmed = line.Trim();
-			return trimmed.StartsWith("[")
-				|| trimmed.StartsWith("---")
-				|| ExceptionHeaderPattern.IsMatch(trimmed);
+			// Check for bracket markers like [GCFrame], [HelperMethodFrame], etc.
+			if (trimmed.StartsWith("[") || trimmed.StartsWith("---"))
+				return true;
+			// Check for WinDbg !clrstack runtime frames with hex address prefix
+			// Format: HexAddr HexAddr [FrameType: HexAddr]
+			if (GCFramePattern.IsMatch(trimmed))
+				return true;
+			if (ExceptionHeaderPattern.IsMatch(trimmed))
+				return true;
+			return false;
 		}
 
 		public StackFrame? Parse(string line)

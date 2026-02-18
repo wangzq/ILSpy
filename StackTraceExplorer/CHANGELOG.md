@@ -1,5 +1,15 @@
 # Stack Trace Explorer Plugin - Changelog
 
+## v1.0.21
+- **WinDbg !clrstack format support**: Added `ClrStackParser` for WinDbg `!clrstack` output
+  - Format: `HexSP HexIP Namespace.Class.Method(params)`
+  - Parses method frames with hex stack pointer and instruction pointer addresses
+  - Handles generic types like `Task`1[[System.__Canon, mscorlib]]`
+  - Recognizes async state machines and lambda expressions
+- **Improved runtime frame handling**: Enhanced `SpecialMarkersParser` for WinDbg frames
+  - Supports `[GCFrame]`, `[HelperMethodFrame]`, `[PrestubMethodFrame]`, `[DebuggerU2MCatchHandlerFrame]`
+  - Handles frames with hex address prefixes
+
 ## v1.0.20
 - **Watson crash stack trace support**: Added `WatsonCrashParser` for Watson crash dump format
   - Format: `Module!Namespace.Class.Method+0x0 [source @ line]`

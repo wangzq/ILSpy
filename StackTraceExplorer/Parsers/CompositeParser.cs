@@ -17,6 +17,7 @@ namespace StackTraceExplorer.Parsers
 			parsers = new IStackTraceParser[]
 			{
 				new SpecialMarkersParser(),
+				new ClrStackParser(),
 				new WatsonCrashParser(),
 				new WinDbgParser(),
 				new StandardNetParser()
