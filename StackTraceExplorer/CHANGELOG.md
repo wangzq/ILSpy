@@ -1,5 +1,9 @@
 # Stack Trace Explorer Plugin - Changelog
 
+## v1.0.22
+- **Property/Event accessor resolution**: Now resolves `get_X`, `set_X`, `add_X`, `remove_X` to property getters/setters and event handlers
+- **Static constructor resolution**: Now resolves `.cctor()` to static constructors
+
 ## v1.0.21
 - **WinDbg !clrstack format support**: Added `ClrStackParser` for WinDbg `!clrstack` output
   - Format: `HexSP HexIP Namespace.Class.Method(params)`

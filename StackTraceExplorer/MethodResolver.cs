@@ -34,6 +34,12 @@ namespace StackTraceExplorer
 			@"[`'](\d+)$",
 			RegexOptions.Compiled);
 
+		// Pattern to detect property accessor (get_PropertyName or set_PropertyName)
+		// and event accessor (add_EventName or remove_EventName)
+		private static readonly Regex AccessorPattern = new Regex(
+			@"^(?<accessor>get|set|add|remove)_(?<member>.+)$",
+			RegexOptions.Compiled);
+
 		public MethodResolver(AssemblyTreeModel assemblyTreeModel)
 		{
 			this.assemblyTreeModel = assemblyTreeModel;
@@ -254,6 +260,9 @@ namespace StackTraceExplorer
 			// Strip generic type arguments from method name (e.g., Execute<bool> -> Execute)
 			methodName = StripGenericTypeArgs(methodName);
 
+			// Check if this is a static constructor (.cctor)
+			bool isStaticConstructor = methodName == ".cctor";
+
 			// Check if this is a constructor call (method name matches type name)
 			bool isConstructor = false;
 			var simpleTypeName = type.Name;
@@ -265,6 +274,17 @@ namespace StackTraceExplorer
 			if (methodName.Equals(simpleTypeName, StringComparison.Ordinal))
 			{
 				isConstructor = true;
+			}
+
+			// Check if this is a property accessor (get_PropertyName or set_PropertyName)
+			// or event accessor (add_EventName or remove_EventName)
+			string? memberName = null;
+			string? accessorType = null;
+			var accessorMatch = AccessorPattern.Match(methodName);
+			if (accessorMatch.Success)
+			{
+				memberName = accessorMatch.Groups["member"].Value;
+				accessorType = accessorMatch.Groups["accessor"].Value;
 			}
 
 			// For compiler-generated methods, extract the original method name
@@ -286,6 +306,10 @@ namespace StackTraceExplorer
 
 			// Build list of method name candidates to search
 			var candidates = new List<string> { methodName };
+			if (isStaticConstructor)
+			{
+				candidates.Add(".cctor"); // IL name for static constructors
+			}
 			if (isConstructor)
 			{
 				candidates.Add(".ctor"); // IL name for instance constructors
@@ -315,6 +339,32 @@ namespace StackTraceExplorer
 					var nestedMethods = nestedType.Methods.Where(m => candidates.Contains(m.Name)).ToList();
 					if (nestedMethods.Count > 0)
 						methods = nestedMethods;
+				}
+			}
+
+			// If still no methods found, try property/event accessors
+			if (methods.Count == 0 && !string.IsNullOrEmpty(memberName) && !string.IsNullOrEmpty(accessorType))
+			{
+				// Try properties
+				var property = type.Properties.FirstOrDefault(p =>
+					p.Name.Equals(memberName, StringComparison.Ordinal));
+				if (property != null)
+				{
+					if (accessorType == "get" && property.Getter != null)
+						return property.Getter;
+					if (accessorType == "set" && property.Setter != null)
+						return property.Setter;
+				}
+
+				// Try events
+				var evt = type.Events.FirstOrDefault(e =>
+					e.Name.Equals(memberName, StringComparison.Ordinal));
+				if (evt != null)
+				{
+					if (accessorType == "add" && evt.AddAccessor != null)
+						return evt.AddAccessor;
+					if (accessorType == "remove" && evt.RemoveAccessor != null)
+						return evt.RemoveAccessor;
 				}
 			}
 
