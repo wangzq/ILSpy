@@ -109,5 +109,33 @@ namespace StackTraceExplorer.Tests
 
 			Assert.That(parser.CanParse(line), Is.False);
 		}
+
+		[Test]
+		public void Parse_GenericType_WithNestedGenericArgs()
+		{
+			// Generic type with two type arguments containing dots
+			var line = "	Microsoft.Crm.Asynchronous.dll!Microsoft.Crm.Asynchronous.AsyncEventExecutionManager<Microsoft.Crm.Asynchronous.AsyncOperationQueueManagerBase, Microsoft.Crm.Asynchronous.AsyncEvent>.ExecuteHandler(Microsoft.Crm.Asynchronous.IAsyncEventHandlerFactory handlerFactory) (IL=0x00E4, Native=0x00007FFA6F086700+0x45F)";
+
+			var frame = parser.Parse(line);
+
+			Assert.That(frame, Is.Not.Null, "Frame should be parsed");
+			Assert.That(frame!.MethodName, Is.EqualTo("ExecuteHandler"), "Method name should be ExecuteHandler");
+			Assert.That(frame.FullTypeName, Is.EqualTo("Microsoft.Crm.Asynchronous.AsyncEventExecutionManager<Microsoft.Crm.Asynchronous.AsyncOperationQueueManagerBase, Microsoft.Crm.Asynchronous.AsyncEvent>"));
+			Assert.That(frame.AssemblyName, Is.EqualTo("Microsoft.Crm.Asynchronous.dll"));
+		}
+
+		[Test]
+		public void Parse_GenericType_ExecuteCommand_WithApproxIL()
+		{
+			// Exact line 151 from async-job1.txt - space+tab prefix and IL≈ (approximately equals)
+			var line = " \tMicrosoft.Crm.Asynchronous.dll!Microsoft.Crm.Asynchronous.AsyncEventExecutionManager<Microsoft.Crm.Asynchronous.AsyncOperationQueueManagerBase, Microsoft.Crm.Asynchronous.AsyncEvent>.ExecuteCommand(Microsoft.Crm.Asynchronous.IAsyncEventHandlerFactory handlerFactory) (IL≈0x00A9, Native=0x00007FFA6F087520+0x314)";
+
+			var frame = parser.Parse(line);
+
+			Assert.That(frame, Is.Not.Null, "Frame should be parsed");
+			Assert.That(frame!.MethodName, Is.EqualTo("ExecuteCommand"), "Method name should be ExecuteCommand");
+			Assert.That(frame.FullTypeName, Does.Contain("AsyncEventExecutionManager"));
+			Assert.That(frame.AssemblyName, Is.EqualTo("Microsoft.Crm.Asynchronous.dll"));
+		}
 	}
 }

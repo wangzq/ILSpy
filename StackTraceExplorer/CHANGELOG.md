@@ -1,5 +1,10 @@
 # Stack Trace Explorer Plugin - Changelog
 
+## v1.0.24
+- **Fix generic type resolution**: Generic types like `AsyncEventExecutionManager<A, B>` now correctly resolve
+  - `StripGenericTypeArgs` now appends generic arity (e.g., `Class<A, B>` → `Class`2`)
+  - Fixes resolution of generic types in WinDbg stack traces
+
 ## v1.0.23
 - **Simple type name resolution**: Support stack traces with only class names (no namespace)
   - TraceError format: `at CrmTrace.Write(...)  ilOffset = 0x8E`

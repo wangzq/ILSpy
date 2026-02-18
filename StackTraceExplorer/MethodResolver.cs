@@ -46,8 +46,9 @@ namespace StackTraceExplorer
 		}
 
 		/// <summary>
-		/// Strips all generic type arguments from a type or method name.
-		/// Properly handles nested angle brackets (e.g., <List<int>, Dictionary<string, int>>).
+		/// Strips all generic type arguments from a type or method name and appends generic arity.
+		/// Properly handles nested angle brackets (e.g., &lt;List&lt;int&gt;, Dictionary&lt;string, int&gt;&gt;).
+		/// Example: AsyncEventExecutionManager&lt;A, B&gt; → AsyncEventExecutionManager`2
 		/// </summary>
 		private static string StripGenericTypeArgs(string name)
 		{
@@ -56,20 +57,39 @@ namespace StackTraceExplorer
 
 			var result = new System.Text.StringBuilder(name.Length);
 			int depth = 0;
+			int topLevelCommaCount = 0;
+			bool hasGenericArgs = false;
 
 			foreach (char c in name)
 			{
 				if (c == '<')
 				{
+					if (depth == 0)
+					{
+						hasGenericArgs = true;
+						topLevelCommaCount = 0; // Reset for each generic section
+					}
 					depth++;
 				}
 				else if (c == '>')
 				{
 					depth--;
+					if (depth == 0 && hasGenericArgs)
+					{
+						// Append the generic arity (number of type args = commas + 1)
+						result.Append('`');
+						result.Append(topLevelCommaCount + 1);
+						hasGenericArgs = false;
+					}
 				}
 				else if (depth == 0)
 				{
 					result.Append(c);
+				}
+				else if (depth == 1 && c == ',')
+				{
+					// Count commas at the top level of generic args
+					topLevelCommaCount++;
 				}
 			}
 
